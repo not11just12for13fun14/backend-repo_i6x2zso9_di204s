@@ -1,8 +1,10 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, EmailStr, Field
+from typing import Optional
 
-app = FastAPI()
+app = FastAPI(title="Albariño Artesanal API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -12,16 +14,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/")
-def read_root():
-    return {"message": "Hello from FastAPI Backend!"}
+class ContactMessage(BaseModel):
+    to: EmailStr = Field(..., description="Destination email")
+    name: str = Field(..., min_length=1)
+    email: EmailStr
+    message: str = Field(..., min_length=10)
 
-@app.get("/api/hello")
-def hello():
-    return {"message": "Hello from the backend API!"}
+@app.get("/")
+async def read_root():
+    return {"message": "Albariño Artesanal Backend Running"}
+
+@app.post("/contact")
+async def contact(msg: ContactMessage):
+    # In a real app you'd send an email via a provider (SES, Resend, etc.)
+    # For this demo, we just acknowledge receipt and log to console.
+    try:
+        print("New contact message:", msg.model_dump())
+        return {"ok": True, "received": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/test")
-def test_database():
+async def test_database():
     """Test endpoint to check if database is available and accessible"""
     response = {
         "backend": "✅ Running",
@@ -63,7 +77,6 @@ def test_database():
     response["database_name"] = "✅ Set" if os.getenv("DATABASE_NAME") else "❌ Not Set"
     
     return response
-
 
 if __name__ == "__main__":
     import uvicorn
